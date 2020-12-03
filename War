@@ -1,0 +1,343 @@
+activate enable
+
+
+
+
+
+Type to start searching
+
+MindSphere Gateway¶
+
+Introduction¶
+
+MindSphere Gateway acts as gateway to MindSphere backend for web application clients, agents and edge applications, as well as all external and internal app backends and services. Web applications or web services integrated with MindSphere Gateway can be reached from the internet using the external gateway access. The routing has to be defined by every provider of apps or services using Gateway Registry. The identity management is integrated with gateway to support web application OAuth 2.0 authorization code flows and to exchange access tokens of interactive or active clients in cross-provider requests.
+
+￼
+
+RFC compliance¶
+
+Standards¶
+
+MindSphere Gateway complies with the following standards, and expects compliance with these standards from each client which intends to interact with MindSphere via MindSphere Gateway.
+
+RFC 7231 - Hypertext Transfer Protocol (HTTP/1.1): Semantics and Content
+
+RFC 7230 - Hypertext Transfer Protocol (HTTP/1.1): Message Syntax and Routing
+
+RFC 2818 - HTTP Over TLS
+
+RFC 2817 - Upgrading to TLS Within HTTP/1.1
+
+RFC 3986 - Uniform Resource Identifier (URI): Generic Syntax
+
+RFC 8615 - Well-Known Uniform Resource Identifiers (URIs)
+
+RFC 6455 - The WebSocket Protocol
+
+RFC 8307 - Well-Known URIs for the WebSocket Protocol
+
+Note
+
+MindSphere Gateway does not support any behavior which violates these standards.
+In case if any violation of standards is discovered in MindSphere Gateway, it will be fixed immediately without further notification, in favor of general system availability, stability and reliability.
+
+Example of a typical violation of the standard¶
+
+The following URL has a common mistake:
+
+Non-RFC compliant URL:
+
+1
+
+https://example-application.eu1.mindsphere.io/getDataByIds?idList=[1,2,3,4,5,6] 
+
+RFC compliant version:
+
+1
+
+https://example-application.eu1.mindsphere.io/getDataByIds?idList=%5B1,2,3,4,5,6%5D 
+
+Explanation: As per RFC-3986, the characters [ and ] belong to the gen-delims set, which are not allowed in the query string part of the URL. However, the query string may contain characters belonging to the pchar set, which includes the sub-delims set. As the comma character is part of this set, it does not need to be encoded.
+Percent-encoding the comma characters too would be within the boundaries of the standard.
+
+Using reserved characters in the URL¶
+
+Every part of the URL has it's own schema, which come with a different set of reserved characters. Developers need to take this into consideration when encoding or decoding the URLs used in MindSphere. For further information, please read Section 2 and Section 3 of RFC-3986.
+
+URL Schemes¶
+
+In the following, the URL schemes of public URLs mapped to MindSphere Gateway are defined. Public URLs are callable from the internet. MindSphere Gateway routes requests to public URLs to registered internal IPs like your internal Cloud Foundry app route.
+
+Curly brackets {} are used to define placeholders for mandatory URL parts and square brackets [ ] to define placeholders required only in defined specific cases.
+
+Call to MindSphere Web Application¶
+
+A web application hosted in MindSphere can be exposed at the gateway under the following hostname:
+
+1
+
+{tenantName}-{webApp}[-{provider}].{region}[-{env}].{mindsphere-domain}/[{path}] 
+
+Description¶
+
+{tenantName} identifies the tenant accessing the web application. It helps to direct the user to the IdP(s) available for that tenant and also allows creating tenant-specific bookmarks in the browser.
+
+{webapp}[-{provider}] identifies the web application uniquely. MindSphere core web applications omit the provider part, while other web applications need to include this part to avoid name collisions and in order to keep the core namespace clean.
+
+{region}[-{env}] identifies the data center region the request is issued to. The env part identifies the environment (e.g. preview) and is only appended for the preview environment.
+
+{mindsphere-domain} identifies the domain of the data center the request is issued to.
+
+[{path}] optional path parameters, to reach sub-content of the web application. The first path parameter needs to be different from /api to avoid conflicts with API routing.
+
+Examples
+
+Web Application Client Call to MindSphere API¶
+
+The web application client calls MindSphere APIs under the same hostname that it was retrieved. The URL path parameter determines the target of the call.
+
+1
+
+{webAppHost}/api/{apiName}[-{apiProvider}]/v{major}/{endpoint} 
+
+Description¶
+
+{webAppHost} is according to the Call to MindSphere Web Application section.
+
+{apiName}[-{apiProvider}] uniquely identifies the API. Core APIs omit the apiProvider part for URL simplicity. Non-core APIs need to append the provider name of the API to avoid name collisions and keep the core namespace clean.
+
+v{major} identifies the major version of the API.
+
+{endpoint} identifies an endpoint of the API. Can be a nested path.
+
+Examples
+
+Active Client Call to MindSphere API¶
+
+Active clients are supposed to be running outside of a web browser. They don't require a tenant or web application identifier in the hostname. The target API is determined in the same way as for web application client calls, though.
+
+1
+
+gateway.{region}[-{env}].{mindsphere-domain}/api/{apiName}[-{apiProvider}]/v{major}/{endpoint} 
+
+Description¶
+
+{region}[-{env}] and {mindsphere-domain} is according to the Call to MindSphere Web Application section.
+
+The path parameters are according to the Web Application Client Call to MindSphere API section.
+
+Examples
+
+Device Agent Call to MindSphere agents or edge API¶
+
+Device agents call MindSphere in the same way as general northbound clients, but use a different subdomain name.
+
+1
+
+southgate.{region}[-{env}].{mindsphere-domain}/api/{apiName}[-{apiProvider}]/v{major}/{endpoint} 
+
+Description¶
+
+{region}[-{env}] and {mindsphere-domain} is according to the Call to MindSphere Web Application section.
+
+The path parameters are according to the Web Application Client Call to MindSphere API section.
+
+Examples
+
+URL Patterns¶
+
+MindSphere Gateway supports Ant-style path pattern matching.
+
+Path Pattern Matching and Wildcard Support¶
+
+Users can register their API endpoint paths using the following wildcards: ?, *, **.
+
+CharacterDescription?matches exactly one character*matches zero or more characters**matches zero or more directories in a path
+
+Examples
+
+Restrictions¶
+
+The following restrictions are enforced when making requests to either your own registered applications or MindSphere APIs. These are only MindSphere Gateway limitations, individual limitations of MindSphere API endpoints may be stricter.
+
+Option￼ValueDescriptionConnection idle timeout60 secondsTimeout when forwarding request to a backend service. If there is no data traffic for this amount of time, then MindSphere Gateway (and/or the ALB) closes the connection. Services could theoretically keep alive WebSocket connections indefinitely, by sending at least 1 byte every minute.Parallel connection count400Maximum number of simultaneous connections per MindSphere Gateway instance.Cache invalidation timeout12 hoursMindSphere Gateway internal cache timeout (Invalidation of data loaded from dependent services such as Gateway Registry).Session timeout12 hoursMaximum lifetime of a user session. Users must re-login after this time.Session inactive timeout30 minutesMaximum lifetime of a session without user activity.Session cookie timeoutInfiniteMaximum lifetime of the session cookie.Access token expiration30 minutesExpiration time of an access token.Refresh token expiration12 hoursExpiration time of a refresh token.Maximum request size150 MBMaximum size of a request that can be sent.Maximum file size100 MBMaximum size of files that can be attached to a multi part request.Maximum header size16 kBMaximum size of headers in a request.
+
+Connection Idle Timeout¶
+
+MindSphere Gateway imposes an idle timeout restriction on both HTTP and WebSocket connections.
+
+A connection is kept alive by sending at least one byte per minute. Otherwise, MindSphere Gateway closes the connection and the client needs to retry the request or reconnect to the WebSocket.
+
+￼
+
+Large Request Restrictions¶
+
+If the maximum request or file size is exceeded, typically when uploading files, the MindSphere Gateway responds with HTTP status 413 Payload Too Large and then immediately closes the connection. Clients should always monitor the network connection for an error response, because they will not be able to read it after the connection was closed.
+
+Examples
+
+Temporary Blocking of Slowly Responding Endpoints¶
+
+When requests are sent to endpoints faster than they can be processed, pending requests could overload MindSphere Gateway instances. This is prevented by greylisting the endpoints, where access to slowly responding endpoints is blocked temporarily if the load of an instance exceeds a limit.
+
+When an endpoint is greylisted, requests receive a response with HTTP status 503 Backend service too slow. Currently, endpoints count as slow when their response time is longer than 30 seconds, and greylisting lasts for 5 minutes. During this period requests are only forwarded to the endpoint, if the concurrent connection count is below 80%.
+
+Info
+
+Slowly responding endpoints are currently not blocked but just reported.
+
+Gateway Error Content Types¶
+
+Gateway error responses are sent in XML or JSON format. If a request shall receive error responses, it must accept these media types. Otherwise, MindSphere Gateway sends HTTP status 406 Not acceptable, if an error occurs.
+Example header:
+
+1
+
+Accept: application/json, application/xml 
+
+Security¶
+
+Authorization¶
+
+Though MindSphere Gateway applies security measures to protect web applications and services in the MindSphere backend, every web application and service is responsible to apply authorization validations to ensure working access control.
+
+Required claims¶
+
+In case authentication with JWT access token is required, the "ten" claim becomes mandatory. In the internal API calls, gateway uses this for routing. If the claim is missing or malformed, gateway responds with HTTP status 403 Forbidden. For more information on claims refer Construction of Self-Signed JWT and Payload Validation.
+
+Cross-Site-Request-Forgery¶
+
+MindSphere Gateway requires web applications to use the provided CSRF token mechanism, including a same origin check based on the origin http header.
+
+Content-Security-Policies (CSP)¶
+
+MindSphere Gateway applies a strict Content Security Policy header for web applications, which is not configurable for 3rd parties. All served resources must come from the application uri or the static content uri (static.{region}[-{env}].{mindsphere-domain}).
+
+A web application may employ the use of CSP by including one of the following HTTP headers in the response:
+
+Content-Security-Policy
+
+Content-Security-Policy-Report-Only
+
+By default, MindSphere Gateway adds a CSP header for web applications:
+
+1
+
+Content-Security-Policy: default-src 'self' static.{region}.{mindsphere-domain}; style-src * 'unsafe-inline'; script-src 'self' 'unsafe-inline' static.{region}.{mindsphere-domain}; img-src * data:; 
+
+parties. For more information about CSP read the official specification from the W3C or the CSP documentation from MDN web docs.
+
+Cache Control¶
+
+MindSphere Gateway can use the specified Cache-Control header values of web applications for caching mechanisms in both requests and responses. The configuration value is the Cache-Control directive list that contains the cache configuration rules in compliance with the Cache-Control header specification.
+
+If the Cache-Control header is provided in the HTTP response, MindSphere Gateway forwards it to the client application.
+
+If the Cache-Control header in the HTTP response is blank or not available, MindSphere Gateway adds the Cache-Control header configured during the application upload.
+
+If the Cache-Control header configured during the application upload is blank, the following default value is added to the response:
+
+1
+
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate 
+
+If the client application uses HTTP/1.0 protocol and the response contains a Cache-Control header with the value no-cache, MindSphere Gateway appends Pragma: no-cache and Expires: 0 headers to the response. For HTTP/1.1 protocol and above those headers are omitted.
+
+AJAX Requests¶
+
+Non AJAX HTTP requests are redirected to the login page, if no valid session is available.
+AJAX HTTP requests with header X-Requested-With: XMLHttpRequest receive HTTP status 401 Unauthorized, if no valid session is available.
+
+WebSockets¶
+
+The WebSocket communication protocol allows for full-duplex communication over a TCP connection. MindSphere Gateway supports WebSocket connections between web client and server of a web application. In order to enable WebSockets, the web client and the backend server must be able to establish and drive the WebSocket connection using the secured wss scheme. MindSphere Gateway acts as proxy for WebSocket connections, similar as for HTTP requests.
+
+Configuring Applications for WebSocket Connections¶
+
+To configure WebSockets, an application requires an endpoint registered at MindSphere Gateway, which allows for HTTP GET requests and is capable of WebSocket. When the web client sends a WebSocket Upgrade request to this endpoint, the WebSocket connection is established it.
+
+Note
+
+Currently, websocket access through southgate is not supported.
+
+Example: The application myApp with the internal URL myApp.apps.eu1.mindsphere.io has an endpoint capable of WebSocket at path /videostream. The application is provided by an operator tenant myOperator and available at MindSphere Gateway for a tenant myTenant as myTenant-myApp-myOperator.eu1.mindsphere.io. The web client of myApp can establish a WebSocket connection to its backend via wss://myTenant-myApp-myOperator.eu1.mindsphere.io/videostream, which is forwarded to wss://myApp.apps.eu1.mindsphere.io/videostream.
+
+Authentication and Authorization¶
+
+Authentication and authorization for WebSocket connections is based on the same mechanisms as for HTTP requests. Web sessions are used between client and MindSphere Gateway, while Bearer access tokens are used for internally forwarded requests. After establishing a WebSocket connection however, the HTTP session and access token are no longer attached in the communication between the web client and the server, because WebSocket messages do not have a header part.
+
+If the HTTP session expires or the user of the web client logs out, the session and consequently the WebSocket connection will be closed.
+MindSphere Gateway will keep the HTTP session alive internally, if there is traffic on the WebSocket connection.
+
+Supported WebSocket Protocols¶
+
+MindSphere Gateway does not restrict the protocols used on top of WebSockets. This allows two applications (communicating through MindSphere Gateway using WebSockets) to freely choose their "language", with the premise that both support the same protocol. MindSphere Gateway forwards every WebSocket message as binary, without interfering with the chosen protocol. For example, the following protocols can be used: STOMP, Socket.IO, MQTT, or custom protocols *.
+
+WebSocket Connection Details¶
+
+Headers¶
+
+WebSocket connections start with a regular HTTP request, the so-called Upgrade request. The web client and server must negotiate which version and extensions to use. After successful negotiation, the server returns an HTTP 101 status code and the TCP socket is kept open for WebSocket communication.
+The following table contains the usual headers for an Upgrade request. The header names and values are case-insensitive.
+For optional headers, empty string as a value is not permitted. In this case, the header name must not be present.
+
+header nameheader valuerequiredCookie:SESSION=<session-id>; REGION-SESSION=<region-session-id>yesConnection:UpgradeyesUpgrade:WebSocketyesSec-WebSocket-Version:13*yesSec-WebSocket-Key:<generated websocket key>yesSec-WebSocket-Extensions:permessage-deflate; client_max_window_bits *noSec-WebSocket-Protocol:<comma separated list> * **no
+
+* Possible values can be found on the following webpage: IANA WebSocket Protocol Registries.
+
+** Sec-WebSocket-Protocol header must be completely omitted if the client does not want to use any subprotocol, see the usage example.
+
+Communication Flow¶
+
+The web client performs a WebSocket protocol Upgrade HTTP request to an endpoint of the application registered at MindSphere Gateway.
+
+MindSphere Gateway evaluates the session headers and the called application endpoint.
+
+MindSphere Gateway creates a WebSocket web client connection to the targeted endpoint.
+
+MindSphere Gateway performs a new WebSocket protocol Upgrade HTTP request to the registered application backend.
+
+MindSphere Gateway responds with HTTP status code 101 and the necessary headers for a WebSocket Upgrade.
+
+In case of success, client and backend are able to bidirectionally send messages over the proxied WebSocket.
+
+In case the connection of MindSphere Gateway to the application backend fails, MindSphere Gateway closes the HTTP connection to the web client with status 400 Bad Request.
+
+WebSocket Communication Example
+
+￼
+
+Effect of Autoscaling and Deployment¶
+
+When a new version of MindSphere Gateway is deployed, websocket connections will be terminated after the Blue/Green switch. Also, autoscaling will shut down instances which may have an open websocket connection.
+
+User applications should expect that the websocket connection can be dropped at any time, and in this case they should try to reconnect.
+
+Ping/Pong messages¶
+
+Currently, no browser exposes the ping/pong message API for JavaScript. This means that the applications in the browser cannot send a low-level ping message every minute. Using other protocols like STOMP or Socket.IO, you can work around this issue by sending a high-level ping message. The other solution is that the server needs to send a periodic ping message to the browsers and all modern browsers will respond with a pong message.
+
+WebSocket usage example in JavaScript¶
+
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
+
+'use strict'; function connectWebsocket (url, protocols) { var socket; if (typeof protocols !== 'undefined' && protocols.length > 0) { // the array is defined and has at least one element socket = new WebSocket(url, protocols); } else { socket = new WebSocket(url); /* * The second parameter must be completly omitted in this case. * If it is present, then an empty Sec-WebSocket-Protocol header will be added in most browsers, * which will result in a connection error. * The following code examples will produce an error: * socket = new WebSocket(url , []); * socket = new WebSocket(url , ""); * socket = new WebSocket(url , null); */ } return socket; } // Example: using this function with ocpp subprotocol var wsUrl = 'wss://tenant-application.eu1.mindsphere.io/websocket/example'; var subProtocols = [ 'ocpp2.0', 'ocpp1.6', 'ocpp1.5', 'ocpp1.2' ]; var webSocket = connectWebsocket(wsUrl, subProtocols);
+
+
+
+*8118 *14.1.4 *10.192.0.2/10
+ 10.192.0.0/10
+AutomapHostsOnResolve 1
+CircuitStreamTimeout 
+org.torproject.android.service.TorService.a M MIL-DTL-12109D SUP 1 NOT 2 Solenoid, Electrical; Gun-Firing Mechanisms, General Specification for [CUST: AT OS 85]
+[REVIEW: 99 AR CC EA MC]
+A 5945 AT 28-JUN-2016
+M MIL-DTL-12109/5A NOT 2 Solenoid, Electrical; Class 2 (Machine Gun) Cal .30, 24 Volt DC, 4.5 AMP Max [CUST: AT OS 85]
+[REVIEW: 99 AR CC EA MC]
+A 5945 AT 28-JUN-2016
+M MIL-DTL-12109/8A NOT 2 Solenoid, Electrical; Class 1 (Cannon) 90 MM, 24 Volt DC, 28 AMP Max [CUST: AT OS 85]
+[REVIEW: 99 AR CC EA MC]
+success.
+
+
+    
